@@ -1,0 +1,3 @@
+[submodule "AOC-JS"]
+	path = AOC-JS
+	url = https://github.com/funniray/AOC-JS.git
