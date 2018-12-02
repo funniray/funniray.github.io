@@ -6,20 +6,23 @@
 		</select>
 		<br>
 		<br>
-		<textarea name=data style="width:80vw; height:80vh">Insert data for puzzle here.</textarea>
+		<textarea name=data style="width:80vw; height:75vh">Insert data for puzzle here.</textarea>
 		<br>
 		<br>
 		<button type=button onClick="solve()"> solve </button>
 	</form>
 	<p id=solution></p>
+	<p id=time></p>
 </body>
 <header>
 	<script>
 		let solveDay = [];
 		function solve() {
 			const day = document.getElementsByName("day")[0].value.split("-");
+			const startTime = new Date().getTime();
 			const solution = solveDay[(day[0]-1)*2+(day[1]-1)](document.getElementsByName("data")[0].value.split("\n"));
 			document.getElementById("solution").innerHTML = solution;
+			document.getElementById("time").innerHTML = `It took ${new Date().getTime()-startTime}ms to solve this problem.`
 		}
 		function reqJS(day,part) {
 			let xhttp = new XMLHttpRequest();
