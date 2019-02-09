@@ -1,9 +1,7 @@
 function solve(input) {
-	for (let i=0; i<input.length; i++) {
+	for (let i=0; i<input.length-1; i++) {
 		let currString = input[i]
-		for (let n=0; n<input.length; n++) {
-			if (n===i)
-				continue;
+		for (let n=i+1; n<input.length; n++) {
 			let testString = input[n];
 			let differentLetters = [];
 			for (let j=0; j<currString.length; j++){
