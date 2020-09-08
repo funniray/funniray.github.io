@@ -1,0 +1,221 @@
+<!DOCTYPE HTML>
+<html>
+<body>
+<canvas width=800 height=400 id="animation" style="border:5px solid #AAAAAA"></canvas>
+<h2 id="score">Score: 0</h2>
+<h1 id="gameover" style="visibility: hidden">GAME OVER (r to reset)</h1>
+<script>
+let canv = document.getElementById("animation");
+let ctx = canv.getContext('2d');
+let gridSpacing = 40;
+let frameDiff = 0;
+
+class Score {
+	constructor(id) {
+		this.elm = document.getElementById(id);
+		this.val = 0;
+	}
+
+	get val() {
+		return this._score;
+	}
+
+	set val(val) {
+		this._score = val;
+		this.elm.innerText = `Score: ${val}`
+	}
+}
+
+class Entity {
+
+	//Speed is in grid spaces per second
+	constructor(speed=4, color="#FFFFFF") {
+		this.speed = 4;
+		this.setPos(0,0);
+		this.moveQueue = [];
+		this.color = color;
+	}
+
+	isOutBounds(x,y) {
+		return x < 0 || y < 0 || canv.width/gridSpacing <= x || canv.height/gridSpacing <= y;
+	}
+
+	isTouching(entity) {
+		return entity.x >= this.x && entity.x < this.x + 1 && entity.y >= this.y && entity.y < this.y + 1;
+	}
+
+	setPos(x,y) {
+		//if (this.isOutBounds(x,y))
+		//	throw "Out of bounds error";
+		this.x = x;
+		this.qx = x;
+		this.y = y;
+		this.qy = y;
+		this.moveQueue = [];
+	}
+
+	//Intentionally doesn't check if it's out of bounds
+	goTo(x,y,cb) {
+		this.qx = x;
+		this.qy = y;
+		this.moveQueue.push([x-this.x,y-this.y,x,y]);
+		this.cb = cb;
+	}
+
+	move(relx,rely) {
+		if (this.isOutBounds(this.qx+relx,this.qy+rely))
+			throw "Out of bounds error";
+		this.moveQueue.push([relx,rely,this.qx+relx,this.qy+rely]);
+		this.qx = this.qx+relx;
+		this.qy = this.qy+rely;
+	}
+
+	draw(ctx) {
+		if (this.moveQueue[0]) {
+			let moveRel = this.moveQueue[0];
+			this.x = checkOver(this.x + getDir(moveRel[0])*(frameDiff/1000*this.speed),moveRel[2],moveRel[0]);
+			this.y = checkOver(this.y + getDir(moveRel[1])*(frameDiff/1000*this.speed),moveRel[3],moveRel[1]);
+			if (this.x === moveRel[2] && this.y === moveRel[3]) {
+				this.moveQueue.shift()
+				if (this.cb) {
+					this.cb(this);
+					this.cb = undefined;
+				}
+			}
+		}
+
+		ctx.lineWidth = 0;
+		ctx.fillStyle = this.color;
+		ctx.fillRect(this.x*gridSpacing,this.y*gridSpacing,gridSpacing,gridSpacing);
+	}
+
+}
+
+function getDir(num) {
+	if (num < 0) return -1;
+	if (num > 0) return 1;
+	return 0;
+}
+
+function checkOver(num,tar,dir) {
+	if (dir>=1) return num>tar ? tar : num;
+	if (dir<=-1) return num<tar ? tar : num;
+	return num;
+}
+
+let entities = [];
+let isRunning = true;
+
+function drawGrid() {
+	let height = canv.height;
+	let width = canv.width;
+
+	let gridHeight = height/gridSpacing;
+	let gridWidth = width/gridSpacing;
+
+	ctx.strokeStyle = `#AAAAAA`;
+	ctx.lineWidth = 5;
+
+	ctx.beginPath();
+	for (let x=gridSpacing;x<width; x+=gridSpacing) {
+		ctx.moveTo(x,0);
+		ctx.lineTo(x,height);
+	}
+
+	for (let y=gridSpacing;y<height; y+=gridSpacing) {
+		ctx.moveTo(0,y);
+		ctx.lineTo(width,y);
+	}
+	ctx.stroke();
+}
+
+function checkCollisions() {
+	let collided=false;
+	for (let entity of entities) {
+		if (entity === cube) continue;
+		//console.log(entity)
+		if (cube.isTouching(entity)) {
+			collided = true;
+			break;
+		}
+	}
+
+	isRunning = !collided;
+	if (collided) {
+		canv.style.visibility = "hidden";
+		document.getElementById('gameover').style.visibility = "visible";
+	}
+}
+
+function draw(timestamp) {
+	frameDiff = timestamp-lastFrameTime;
+	lastFrameTime = timestamp;
+	ctx.fillStyle = `RGBA(256,256,256,1)`;
+	//ctx.fillStyle = `#FFFFFF`;
+	ctx.fillRect(0,0,canv.width,canv.height);
+	drawGrid();
+	entities.forEach(e=>e.draw(ctx));
+	checkCollisions();
+	if (isRunning) window.requestAnimationFrame(draw);
+}
+
+
+let lastFrameTime = performance.now();
+let cube = new Entity(4,"#00ff00");
+entities.push(cube);
+let score = new Score('score')
+draw(performance.now());
+
+function reset() {
+	canv.style.visibility = "visible";
+	document.getElementById('gameover').style.visibility = "hidden";
+	entities = [];
+	entities.push(cube);
+	cube.setPos(0,0);
+	isRunning = true;
+	score.val = 0;
+	draw(performance.now());
+}
+
+document.addEventListener('keydown',(e)=>{
+	if (e.keyCode == 37) cube.move(-1,0);
+	if (e.keyCode == 38) cube.move(0,-1);
+	if (e.keyCode == 39) cube.move(1,0);
+	if (e.keyCode == 40) cube.move(0,1);
+	if (e.key == 'r') reset();
+});
+
+function killEntity(entity) {
+	score.val++;
+	entities = entities.filter(function(item) {
+    	return item !== entity;
+	})
+}
+
+setInterval(()=>{
+	if (!isRunning) return;
+	let enemy = new Entity(2,"#ff0000");
+	let dir = [Math.floor(Math.random()*3)-1,Math.floor(Math.random()*3)-1];
+
+	if (dir[0] != 0) dir[1] = 0;
+	if (dir[0] === 0 && dir[1] === 0) return;
+
+	if (dir[0] === 1) {
+		enemy.setPos(-1,Math.floor(Math.random()*canv.height/gridSpacing));
+		enemy.goTo(canv.width/gridSpacing,enemy.y,killEntity);
+	} else if (dir[0] === -1) {
+		enemy.setPos(canv.width/gridSpacing,Math.floor(Math.random()*canv.height/gridSpacing));
+		enemy.goTo(-1,enemy.y,killEntity);
+	} else if (dir[1] === 1) {
+		enemy.setPos(Math.floor(Math.random()*canv.width/gridSpacing),-1);
+		enemy.goTo(enemy.x,canv.height/gridSpacing,killEntity);
+	} else if (dir[1] === -1) {
+		enemy.setPos(Math.floor(Math.random()*canv.width/gridSpacing),canv.height/gridSpacing);
+		enemy.goTo(enemy.x,-1,killEntity);
+	}
+	entities.push(enemy);
+},500)
+
+</script>
+</body>
+</html>
